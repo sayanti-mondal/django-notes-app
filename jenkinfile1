@@ -1,0 +1,54 @@
+
+// This code contains the CI-CD pipeline without shared folder
+pipeline{
+    agent { label 'agent1' }
+    stages{
+        stage("Code"){
+            steps{
+               echo "This is cloning the code"
+               git url:"https://github.com/sayanti-mondal/django-notes-app.git",branch: "main"
+               echo "Code cloned Successfully"
+            }
+        }
+        stage("ignore /data directory"){
+            steps{
+                // Use 'sh' to create the .dockerignore file with the exclusion
+                sh 'echo "data/" > .dockerignore'
+            }
+        }
+        stage("Build"){
+            steps{
+               echo "This is Building the code"
+               sh "whoami"
+               sh "docker build -t notes-app:1.0 ."
+            }
+        }
+        stage("Push to DockerHub"){
+            steps{
+                echo "This is pushing the code to DockerHub"
+                //sh "docker login -u sayanti090 -p pass"
+                withCredentials([usernamePassword(
+                                   credentialsId: 'dockerHubCred', 
+                                   // The environment variable name for the username
+                                   usernameVariable: 'dockerHubUser', 
+                                  // The environment variable name for the password/PAT
+                                   passwordVariable: 'dockerHubPass')]){
+                                       
+            // Code block where DOCKER_USER and DOCKER_PASSWORD are accessible
+                //sh 'docker login -u $DOCKER_USER --password-stdin'
+                sh "docker login -u ${env.dockerHubUser} -p ${env.dockerHubPass} "
+                sh "docker tag notes-app:1.0 ${env.dockerHubUser}/notes-app:1.0"
+                sh "docker push ${env.dockerHubUser}/notes-app:1.0"
+                echo "image to dockerHub is complete"
+              }
+            }
+        }
+        stage("Deploy"){
+           steps{
+               echo " This is deployment of the code"
+               sh "docker compose up -d"
+           } 
+        }
+    }
+     
+}
